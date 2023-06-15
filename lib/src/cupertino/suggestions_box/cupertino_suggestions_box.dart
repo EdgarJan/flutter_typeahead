@@ -154,9 +154,9 @@ class CupertinoSuggestionsBox {
       double textBoxAbsY) {
     return direction == AxisDirection.down
         ? _calculateMaxHeightDown(box, widget, windowHeight, rootMediaQuery,
-        keyboardHeight, textBoxAbsY)
+        keyboardHeight, textBoxAbsY) - 45.0
         : _calculateMaxHeightUp(box, widget, windowHeight, rootMediaQuery,
-        keyboardHeight, textBoxAbsY);
+        keyboardHeight, textBoxAbsY) - 45.0;
   }
 
   double _calculateMaxHeightDown(
