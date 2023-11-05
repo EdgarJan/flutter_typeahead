@@ -155,19 +155,28 @@ class SuggestionsBox {
     if (maxHeight < 0) maxHeight = 0;
   }
 
-  double _calculateMaxHeight(
-      AxisDirection direction,
+  double _calculateMaxHeightDown(
       RenderBox box,
       TypeAheadField widget,
       double windowHeight,
       MediaQuery rootMediaQuery,
       double keyboardHeight,
       double textBoxAbsY) {
-    return direction == AxisDirection.down
-        ? _calculateMaxHeightDown(box, widget, windowHeight, rootMediaQuery,
-            keyboardHeight, textBoxAbsY)
-        : _calculateMaxHeightUp(box, widget, windowHeight, rootMediaQuery,
-            keyboardHeight, textBoxAbsY);
+    // unsafe area, ie: iPhone X 'home button'
+    // keyboardHeight includes unsafeAreaHeight, if keyboard is showing, set to 0
+    double unsafeAreaHeight =
+        keyboardHeight == 0 ? rootMediaQuery.data.padding.bottom : 0;
+
+    // Subtract additional 45px from the maxHeight to create the desired gap.
+    double desiredGap = 45.0;
+
+    return windowHeight -
+        keyboardHeight -
+        unsafeAreaHeight -
+        textBoxHeight -
+        textBoxAbsY -
+        2 * widget.suggestionsBoxVerticalOffset -
+        desiredGap; // Subtract the desiredGap here
   }
 
   double _calculateMaxHeightDown(
