@@ -12,13 +12,13 @@ import 'package:pointer_interceptor/pointer_interceptor.dart';
 
 /// Renders all the suggestions using a ListView as default.  If
 /// `layoutArchitecture` is specified, uses that instead.
-
 class SuggestionsList<T> extends StatefulWidget {
   final SuggestionsBox? suggestionsBox;
   final TextEditingController? controller;
   final bool getImmediateSuggestions;
   final SuggestionSelectionCallback<T>? onSuggestionSelected;
   final SuggestionsCallback<T>? suggestionsCallback;
+  final SuggestionsLoadMoreCallback<T>? suggestionsLoadMoreCallback;
   final ItemBuilder<T>? itemBuilder;
   final IndexedWidgetBuilder? itemSeparatorBuilder;
   final LayoutArchitecture? layoutArchitecture;
@@ -46,13 +46,15 @@ class SuggestionsList<T> extends StatefulWidget {
   final KeyEventResult Function(FocusNode _, RawKeyEvent event) onKeyEvent;
   final bool hideKeyboardOnDrag;
 
-  SuggestionsList({
+  const SuggestionsList({
+    super.key,
     required this.suggestionsBox,
     this.controller,
     this.intercepting = false,
     this.getImmediateSuggestions = false,
     this.onSuggestionSelected,
     this.suggestionsCallback,
+    this.suggestionsLoadMoreCallback,
     this.itemBuilder,
     this.itemSeparatorBuilder,
     this.layoutArchitecture,
@@ -77,10 +79,13 @@ class SuggestionsList<T> extends StatefulWidget {
     required this.onSuggestionFocus,
     required this.onKeyEvent,
     required this.hideKeyboardOnDrag,
-  });
+  }) : assert((suggestionsCallback != null &&
+                suggestionsLoadMoreCallback == null) ||
+            (suggestionsLoadMoreCallback != null &&
+                suggestionsCallback == null));
 
   @override
-  _SuggestionsListState<T> createState() => _SuggestionsListState<T>();
+  State<SuggestionsList<T>> createState() => _SuggestionsListState<T>();
 }
 
 class _SuggestionsListState<T> extends State<SuggestionsList<T>>
@@ -97,6 +102,9 @@ class _SuggestionsListState<T> extends State<SuggestionsList<T>>
       widget.scrollController ?? ScrollController();
   List<FocusNode> _focusNodes = [];
   int _suggestionIndex = -1;
+  int _page = 1;
+  bool _isLoadMoreRunning = false;
+  bool _hasMoreData = true;
 
   _SuggestionsListState() {
     this._controllerListener = () {
@@ -138,12 +146,14 @@ class _SuggestionsListState<T> extends State<SuggestionsList<T>>
   void didUpdateWidget(SuggestionsList<T> oldWidget) {
     super.didUpdateWidget(oldWidget);
     widget.controller!.addListener(this._controllerListener);
+    _page = 1;
     _getSuggestions();
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    _page = 1;
     _getSuggestions();
   }
 
@@ -193,14 +203,31 @@ class _SuggestionsListState<T> extends State<SuggestionsList<T>>
         _suggestionIndex = -1;
       }
     });
+
+    if (widget.suggestionsLoadMoreCallback != null) {
+      _scrollController.addListener(_scrollListener);
+    }
+  }
+
+  _scrollListener() {
+    if (_scrollController.offset >=
+            _scrollController.position.maxScrollExtent &&
+        !_scrollController.position.outOfRange) {
+      if (_hasMoreData) {
+        _suggestionsValid = false;
+        _isLoadMoreRunning = true;
+        this._getSuggestions(loadType: 'append');
+      }
+    }
   }
 
   Future<void> invalidateSuggestions() async {
     _suggestionsValid = false;
+    _page = 1;
     await _getSuggestions();
   }
 
-  Future<void> _getSuggestions() async {
+  Future<void> _getSuggestions({String? loadType}) async {
     if (_suggestionsValid) return;
     _suggestionsValid = true;
 
@@ -216,13 +243,17 @@ class _SuggestionsListState<T> extends State<SuggestionsList<T>>
       Object? error;
 
       try {
-        suggestions =
-            await widget.suggestionsCallback!(widget.controller!.text);
+        if (widget.suggestionsCallback != null)
+          suggestions =
+              await widget.suggestionsCallback!(widget.controller!.text);
+        else
+          suggestions = await widget.suggestionsLoadMoreCallback!(
+              widget.controller!.text, this._page);
       } catch (e) {
         error = e;
       }
 
-      if (this.mounted) {
+      if (mounted) {
         // if it wasn't removed in the meantime
         setState(() {
           double? animationStart = widget.animationStart;
@@ -234,7 +265,18 @@ class _SuggestionsListState<T> extends State<SuggestionsList<T>>
 
           this._error = error;
           this._isLoading = false;
-          this._suggestions = suggestions;
+          this._isLoadMoreRunning = false;
+          this._page += 1;
+          if (loadType == 'append') {
+            //List suggestionList = List.from(this._suggestions);
+            this._suggestions = [...this._suggestions!, ...suggestions!];
+            if (suggestions.isEmpty) {
+              _hasMoreData = false;
+            }
+          } else {
+            this._suggestions = suggestions;
+          }
+
           _focusNodes = List.generate(
             _suggestions?.length ?? 0,
             (index) => FocusNode(onKey: (_, event) {
@@ -259,27 +301,29 @@ class _SuggestionsListState<T> extends State<SuggestionsList<T>>
   @override
   Widget build(BuildContext context) {
     bool isEmpty =
-        this._suggestions?.length == 0 && widget.controller!.text == "";
+        (this._suggestions?.isEmpty ?? false) && widget.controller!.text == "";
     if ((this._suggestions == null || isEmpty) &&
         this._isLoading == false &&
-        this._error == null) return Container();
+        this._error == null) {
+      return const SizedBox();
+    }
 
     Widget child;
     if (this._isLoading!) {
       if (widget.hideOnLoading!) {
-        child = Container(height: 0);
+        child = const SizedBox(height: 0);
       } else {
         child = createLoadingWidget();
       }
     } else if (this._error != null) {
       if (widget.hideOnError!) {
-        child = Container(height: 0);
+        child = const SizedBox(height: 0);
       } else {
         child = createErrorWidget();
       }
     } else if (this._suggestions!.isEmpty) {
       if (widget.hideOnEmpty!) {
-        child = Container(height: 0);
+        child = const SizedBox(height: 0);
       } else {
         child = createNoItemsFoundWidget();
       }
@@ -292,8 +336,9 @@ class _SuggestionsListState<T> extends State<SuggestionsList<T>>
         : SizeTransition(
             axisAlignment: -1.0,
             sizeFactor: CurvedAnimation(
-                parent: this._animationController!,
-                curve: Curves.fastOutSlowIn),
+              parent: this._animationController!,
+              curve: Curves.fastOutSlowIn,
+            ),
             child: child,
           );
 
@@ -311,22 +356,21 @@ class _SuggestionsListState<T> extends State<SuggestionsList<T>>
       );
     }
 
-    var container = PointerInterceptor(
+    return PointerInterceptor(
       intercepting: widget.intercepting,
-                child: Material(
-      elevation: widget.decoration!.elevation,
-      color: widget.decoration!.color,
-      shape: widget.decoration!.shape,
-      borderRadius: widget.decoration!.borderRadius,
-      shadowColor: widget.decoration!.shadowColor,
-      clipBehavior: widget.decoration!.clipBehavior,
-      child: ConstrainedBox(
-        constraints: constraints,
-        child: animationChild,
+      child: Material(
+        elevation: widget.decoration!.elevation,
+        color: widget.decoration!.color,
+        shape: widget.decoration!.shape,
+        borderRadius: widget.decoration!.borderRadius,
+        shadowColor: widget.decoration!.shadowColor,
+        clipBehavior: widget.decoration!.clipBehavior,
+        child: ConstrainedBox(
+          constraints: constraints,
+          child: animationChild,
+        ),
       ),
-    ));
-
-    return container;
+    );
   }
 
   Widget createLoadingWidget() {
@@ -341,10 +385,10 @@ class _SuggestionsListState<T> extends State<SuggestionsList<T>>
     } else {
       child = widget.loadingBuilder != null
           ? widget.loadingBuilder!(context)
-          : Align(
+          : const Align(
               alignment: Alignment.center,
               child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8.0),
+                padding: EdgeInsets.symmetric(vertical: 8.0),
                 child: CircularProgressIndicator(),
               ),
             );
@@ -381,7 +425,17 @@ class _SuggestionsListState<T> extends State<SuggestionsList<T>>
 
   Widget createSuggestionsWidget() {
     if (widget.layoutArchitecture == null) {
-      return defaultSuggestionsWidget();
+      // return defaultSuggestionsWidget();
+      return Column(mainAxisSize: MainAxisSize.min, children: [
+        Flexible(child: defaultSuggestionsWidget()),
+        // defaultSuggestionsWidget(),
+        if (this._isLoadMoreRunning)
+          const Center(
+              child: Padding(
+            padding: EdgeInsets.all(8),
+            child: CircularProgressIndicator(),
+          )),
+      ]);
     } else {
       return customSuggestionsWidget();
     }
@@ -400,7 +454,10 @@ class _SuggestionsListState<T> extends State<SuggestionsList<T>>
           ? false
           : widget.suggestionsBox!.autoFlipListDirection,
       itemCount: this._suggestions!.length,
-      itemBuilder: (BuildContext context, int index) {
+      physics: widget.suggestionsLoadMoreCallback != null
+          ? const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics())
+          : null,
+      itemBuilder: (context, index) {
         final suggestion = this._suggestions!.elementAt(index);
         final focusNode = _focusNodes[index];
         return TextFieldTapRegion(
@@ -428,13 +485,15 @@ class _SuggestionsListState<T> extends State<SuggestionsList<T>>
         removeTop: true,
         child: Scrollbar(
           controller: _scrollController,
+          thumbVisibility: widget.decoration!.scrollbarThumbAlwaysVisible,
+          trackVisibility: widget.decoration!.scrollbarTrackAlwaysVisible,
           child: child,
         ),
       );
     }
 
     child = TextFieldTapRegion(child: child);
-    
+
     return child;
   }
 
@@ -467,6 +526,8 @@ class _SuggestionsListState<T> extends State<SuggestionsList<T>>
         removeTop: true,
         child: Scrollbar(
           controller: _scrollController,
+          thumbVisibility: widget.decoration!.scrollbarThumbAlwaysVisible,
+          trackVisibility: widget.decoration!.scrollbarTrackAlwaysVisible,
           child: child,
         ),
       );

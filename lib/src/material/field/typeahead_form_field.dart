@@ -22,52 +22,54 @@ class TypeAheadFormField<T> extends FormField<String> {
   final void Function()? onReset;
 
   /// Creates a [TypeAheadFormField]
-  TypeAheadFormField(
-      {Key? key,
-      String? initialValue,
-      bool getImmediateSuggestions = false,
-      @Deprecated('Use autovalidateMode parameter which provides more specific '
-          'behavior related to auto validation. '
-          'This feature was deprecated after Flutter v1.19.0.')
-      bool autovalidate = false,
-      bool enabled = true,
-      AutovalidateMode autovalidateMode = AutovalidateMode.disabled,
-      FormFieldSetter<String>? onSaved,
-      this.onReset,
-      FormFieldValidator<String>? validator,
-      ErrorBuilder? errorBuilder,
-      WidgetBuilder? noItemsFoundBuilder,
-      WidgetBuilder? loadingBuilder,
-      void Function(bool)? onSuggestionsBoxToggle,
-      Duration debounceDuration = const Duration(milliseconds: 300),
-      SuggestionsBoxDecoration suggestionsBoxDecoration =
-          const SuggestionsBoxDecoration(),
-      SuggestionsBoxController? suggestionsBoxController,
-      required SuggestionSelectionCallback<T> onSuggestionSelected,
-      required ItemBuilder<T> itemBuilder,
-      IndexedWidgetBuilder? itemSeparatorBuilder,
-      LayoutArchitecture? layoutArchitecture,
-      required SuggestionsCallback<T> suggestionsCallback,
-      double suggestionsBoxVerticalOffset = 5.0,
-      this.textFieldConfiguration = const TextFieldConfiguration(),
-      AnimationTransitionBuilder? transitionBuilder,
-      Duration animationDuration = const Duration(milliseconds: 500),
-      double animationStart = 0.25,
-      AxisDirection direction = AxisDirection.down,
-      bool hideOnLoading = false,
-      bool hideOnEmpty = false,
-      bool hideOnError = false,
-      bool hideSuggestionsOnKeyboardHide = true,
-      bool intercepting = false,
-      bool keepSuggestionsOnLoading = true,
-      bool keepSuggestionsOnSuggestionSelected = false,
-      bool autoFlipDirection = false,
-      bool autoFlipListDirection = true,
-      double autoFlipMinHeight = 64.0,
-      bool hideKeyboard = false,
-      int minCharsForSuggestions = 0,
-      bool hideKeyboardOnDrag = false})
-      : assert(
+  TypeAheadFormField({
+    Key? key,
+    String? initialValue,
+    bool getImmediateSuggestions = false,
+    @Deprecated('Use autovalidateMode parameter which provides more specific '
+        'behavior related to auto validation. '
+        'This feature was deprecated after Flutter v1.19.0.')
+    bool autovalidate = false,
+    bool enabled = true,
+    AutovalidateMode autovalidateMode = AutovalidateMode.disabled,
+    FormFieldSetter<String>? onSaved,
+    this.onReset,
+    FormFieldValidator<String>? validator,
+    ErrorBuilder? errorBuilder,
+    WidgetBuilder? noItemsFoundBuilder,
+    WidgetBuilder? loadingBuilder,
+    void Function(bool)? onSuggestionsBoxToggle,
+    Duration debounceDuration = const Duration(milliseconds: 300),
+    SuggestionsBoxDecoration suggestionsBoxDecoration =
+        const SuggestionsBoxDecoration(),
+    SuggestionsBoxController? suggestionsBoxController,
+    required SuggestionSelectionCallback<T> onSuggestionSelected,
+    required ItemBuilder<T> itemBuilder,
+    IndexedWidgetBuilder? itemSeparatorBuilder,
+    LayoutArchitecture? layoutArchitecture,
+    required SuggestionsCallback<T> suggestionsCallback,
+    double suggestionsBoxVerticalOffset = 5.0,
+    this.textFieldConfiguration = const TextFieldConfiguration(),
+    AnimationTransitionBuilder? transitionBuilder,
+    Duration animationDuration = const Duration(milliseconds: 500),
+    double animationStart = 0.25,
+    AxisDirection direction = AxisDirection.down,
+    bool hideOnLoading = false,
+    bool hideOnEmpty = false,
+    bool hideOnError = false,
+    bool hideSuggestionsOnKeyboardHide = true,
+    bool intercepting = false,
+    bool keepSuggestionsOnLoading = true,
+    bool keepSuggestionsOnSuggestionSelected = false,
+    bool autoFlipDirection = false,
+    bool autoFlipListDirection = true,
+    double autoFlipMinHeight = 64.0,
+    bool hideKeyboard = false,
+    int minCharsForSuggestions = 0,
+    bool hideKeyboardOnDrag = false,
+    bool ignoreAccessibleNavigation = false,
+    bool showKeyboadAfterPressAgain = false,
+  })  : assert(
             initialValue == null || textFieldConfiguration.controller == null),
         assert(minCharsForSuggestions >= 0),
         super(
@@ -105,6 +107,7 @@ class TypeAheadFormField<T> extends FormField<String> {
                 onSuggestionSelected: onSuggestionSelected,
                 onSuggestionsBoxToggle: onSuggestionsBoxToggle,
                 itemBuilder: itemBuilder,
+                itemSeparatorBuilder: itemSeparatorBuilder,
                 layoutArchitecture: layoutArchitecture,
                 suggestionsCallback: suggestionsCallback,
                 animationStart: animationStart,
@@ -124,10 +127,123 @@ class TypeAheadFormField<T> extends FormField<String> {
                 hideKeyboard: hideKeyboard,
                 minCharsForSuggestions: minCharsForSuggestions,
                 hideKeyboardOnDrag: hideKeyboardOnDrag,
+                ignoreAccessibleNavigation: ignoreAccessibleNavigation,
+                showKeyboadAfterPressAgain: showKeyboadAfterPressAgain,
               );
             });
+
+  TypeAheadFormField.paged({
+    Key? key,
+    String? initialValue,
+    bool getImmediateSuggestions = false,
+    @Deprecated('Use autovalidateMode parameter which provides more specific '
+        'behavior related to auto validation. '
+        'This feature was deprecated after Flutter v1.19.0.')
+    bool autovalidate = false,
+    bool enabled = true,
+    AutovalidateMode autovalidateMode = AutovalidateMode.disabled,
+    FormFieldSetter<String>? onSaved,
+    this.onReset,
+    FormFieldValidator<String>? validator,
+    ErrorBuilder? errorBuilder,
+    WidgetBuilder? noItemsFoundBuilder,
+    WidgetBuilder? loadingBuilder,
+    void Function(bool)? onSuggestionsBoxToggle,
+    Duration debounceDuration = const Duration(milliseconds: 300),
+    SuggestionsBoxDecoration suggestionsBoxDecoration =
+        const SuggestionsBoxDecoration(),
+    SuggestionsBoxController? suggestionsBoxController,
+    required SuggestionSelectionCallback<T> onSuggestionSelected,
+    required ItemBuilder<T> itemBuilder,
+    IndexedWidgetBuilder? itemSeparatorBuilder,
+    LayoutArchitecture? layoutArchitecture,
+    required SuggestionsLoadMoreCallback<T> suggestionsLoadMoreCallback,
+    double suggestionsBoxVerticalOffset = 5.0,
+    this.textFieldConfiguration = const TextFieldConfiguration(),
+    AnimationTransitionBuilder? transitionBuilder,
+    Duration animationDuration = const Duration(milliseconds: 500),
+    double animationStart = 0.25,
+    AxisDirection direction = AxisDirection.down,
+    bool hideOnLoading = false,
+    bool hideOnEmpty = false,
+    bool hideOnError = false,
+    bool hideSuggestionsOnKeyboardHide = true,
+    bool intercepting = false,
+    bool keepSuggestionsOnLoading = true,
+    bool keepSuggestionsOnSuggestionSelected = false,
+    bool autoFlipDirection = false,
+    bool autoFlipListDirection = true,
+    double autoFlipMinHeight = 64.0,
+    bool hideKeyboard = false,
+    int minCharsForSuggestions = 0,
+    bool hideKeyboardOnDrag = false,
+    bool ignoreAccessibleNavigation = false,
+    bool showKeyboadAfterPressAgain = false,
+  })  : assert(
+            initialValue == null || textFieldConfiguration.controller == null),
+        assert(minCharsForSuggestions >= 0),
+        super(
+            key: key,
+            onSaved: onSaved,
+            validator: validator,
+            initialValue: textFieldConfiguration.controller != null
+                ? textFieldConfiguration.controller!.text
+                : (initialValue ?? ''),
+            enabled: enabled,
+            autovalidateMode: autovalidateMode,
+            builder: (FormFieldState<String> field) {
+              final _TypeAheadFormFieldState state =
+                  field as _TypeAheadFormFieldState<dynamic>;
+
+              return TypeAheadField.paged(
+                getImmediateSuggestions: getImmediateSuggestions,
+                transitionBuilder: transitionBuilder,
+                errorBuilder: errorBuilder,
+                noItemsFoundBuilder: noItemsFoundBuilder,
+                loadingBuilder: loadingBuilder,
+                debounceDuration: debounceDuration,
+                suggestionsBoxDecoration: suggestionsBoxDecoration,
+                suggestionsBoxController: suggestionsBoxController,
+                textFieldConfiguration: textFieldConfiguration.copyWith(
+                  decoration: textFieldConfiguration.decoration
+                      .copyWith(errorText: state.errorText),
+                  onChanged: (text) {
+                    state.didChange(text);
+                    textFieldConfiguration.onChanged?.call(text);
+                  },
+                  controller: state._effectiveController,
+                ),
+                suggestionsBoxVerticalOffset: suggestionsBoxVerticalOffset,
+                onSuggestionSelected: onSuggestionSelected,
+                onSuggestionsBoxToggle: onSuggestionsBoxToggle,
+                itemBuilder: itemBuilder,
+                itemSeparatorBuilder: itemSeparatorBuilder,
+                layoutArchitecture: layoutArchitecture,
+                suggestionsLoadMoreCallback: suggestionsLoadMoreCallback,
+                animationStart: animationStart,
+                animationDuration: animationDuration,
+                direction: direction,
+                hideOnLoading: hideOnLoading,
+                hideOnEmpty: hideOnEmpty,
+                hideOnError: hideOnError,
+                hideSuggestionsOnKeyboardHide: hideSuggestionsOnKeyboardHide,
+                keepSuggestionsOnLoading: keepSuggestionsOnLoading,
+                keepSuggestionsOnSuggestionSelected:
+                    keepSuggestionsOnSuggestionSelected,
+                intercepting: intercepting,
+                autoFlipDirection: autoFlipDirection,
+                autoFlipListDirection: autoFlipListDirection,
+                autoFlipMinHeight: autoFlipMinHeight,
+                hideKeyboard: hideKeyboard,
+                minCharsForSuggestions: minCharsForSuggestions,
+                hideKeyboardOnDrag: hideKeyboardOnDrag,
+                ignoreAccessibleNavigation: ignoreAccessibleNavigation,
+                showKeyboadAfterPressAgain: showKeyboadAfterPressAgain,
+              );
+            });
+
   @override
-  _TypeAheadFormFieldState<T> createState() => _TypeAheadFormFieldState<T>();
+  FormFieldState<String> createState() => _TypeAheadFormFieldState<T>();
 }
 
 class _TypeAheadFormFieldState<T> extends FormFieldState<String> {
@@ -161,13 +277,15 @@ class _TypeAheadFormFieldState<T> extends FormFieldState<String> {
           ?.addListener(_handleControllerChanged);
 
       if (oldWidget.textFieldConfiguration.controller != null &&
-          widget.textFieldConfiguration.controller == null)
+          widget.textFieldConfiguration.controller == null) {
         _controller = TextEditingController.fromValue(
             oldWidget.textFieldConfiguration.controller!.value);
+      }
       if (widget.textFieldConfiguration.controller != null) {
         setValue(widget.textFieldConfiguration.controller!.text);
-        if (oldWidget.textFieldConfiguration.controller == null)
+        if (oldWidget.textFieldConfiguration.controller == null) {
           _controller = null;
+        }
       }
     }
   }
@@ -198,7 +316,8 @@ class _TypeAheadFormFieldState<T> extends FormFieldState<String> {
     // notifications for changes originating from within this class -- for
     // example, the reset() method. In such cases, the FormField value will
     // already have been set.
-    if (_effectiveController!.text != value)
+    if (_effectiveController!.text != value) {
       didChange(_effectiveController!.text);
+    }
   }
 }

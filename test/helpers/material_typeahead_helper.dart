@@ -4,9 +4,13 @@ import 'package:flutter_typeahead/flutter_typeahead.dart';
 
 /// Helper class to get the material typeahead test page
 class MaterialTypeAheadHelper {
-  static Widget getMaterialTypeAheadPage() {
+  static Widget getMaterialTypeAheadPage({
+    SuggestionsBoxDecoration? suggestionsBoxDecoration,
+  }) {
     return MaterialApp(
-      home: MaterialTypeAheadPage(),
+      home: MaterialTypeAheadPage(
+        suggestionsBoxDecoration: suggestionsBoxDecoration,
+      ),
     );
   }
 }
@@ -14,8 +18,12 @@ class MaterialTypeAheadHelper {
 /// The widget that will be returned for the material typeahead test page
 class MaterialTypeAheadPage extends StatefulWidget {
   final String? title;
-
-  const MaterialTypeAheadPage({super.key, this.title});
+  final SuggestionsBoxDecoration? suggestionsBoxDecoration;
+  const MaterialTypeAheadPage({
+    super.key,
+    this.title,
+    this.suggestionsBoxDecoration,
+  });
 
   @override
   State<MaterialTypeAheadPage> createState() => _MaterialTypeAheadPageState();
@@ -35,12 +43,12 @@ class _MaterialTypeAheadPageState extends State<MaterialTypeAheadPage> {
   ];
 
   /// This is to trigger a loading builder when searching for items
-  Future<List<String>> _getFoodItems(String pattern) async {
+  Future<List<String>> _getFoodItems(String pattern, {int? page}) async {
     pattern = pattern.trim();
     if (pattern.isNotEmpty) {
       return Future.delayed(
           const Duration(seconds: 2),
-              () => foodItems
+          () => foodItems
               .where(
                   (item) => item.toLowerCase().contains(pattern.toLowerCase()))
               .toList());
@@ -51,8 +59,8 @@ class _MaterialTypeAheadPageState extends State<MaterialTypeAheadPage> {
 
   /// Widget that will be displayed when no results were found
   Widget _getNoResultText(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(10),
+    return const Padding(
+      padding: EdgeInsets.all(10),
       child: Text("No results found!"),
     );
   }
@@ -81,11 +89,11 @@ class _MaterialTypeAheadPageState extends State<MaterialTypeAheadPage> {
             ),
             borderRadius: BorderRadius.circular(5),
           ),
-          constraints: BoxConstraints(
+          constraints: const BoxConstraints(
             minHeight: 50,
             maxHeight: 150,
           ),
-          child: Center(
+          child: const Center(
             child: CircularProgressIndicator(),
           ),
         );
@@ -98,10 +106,12 @@ class _MaterialTypeAheadPageState extends State<MaterialTypeAheadPage> {
           title: Text(suggestion),
         );
       },
-      suggestionsBoxDecoration: SuggestionsBoxDecoration(
-        elevation: 2,
-        hasScrollbar: true,
-      ),
+      suggestionsBoxDecoration: (widget.suggestionsBoxDecoration == null)
+          ? const SuggestionsBoxDecoration(
+              elevation: 2,
+              hasScrollbar: true,
+            )
+          : widget.suggestionsBoxDecoration!,
       getImmediateSuggestions: false,
       onSuggestionSelected: (String suggestion) => controller.text = suggestion,
       minCharsForSuggestions: 1,
@@ -110,7 +120,9 @@ class _MaterialTypeAheadPageState extends State<MaterialTypeAheadPage> {
 
   @override
   void dispose() {
-    for (TextEditingController controller in _controllers) controller.dispose();
+    for (TextEditingController controller in _controllers) {
+      controller.dispose();
+    }
     super.dispose();
   }
 
@@ -119,19 +131,13 @@ class _MaterialTypeAheadPageState extends State<MaterialTypeAheadPage> {
     return Scaffold(
       resizeToAvoidBottomInset: false,
       appBar: AppBar(
-        title: Text('Material TypeAhead test'),
+        title: const Text('Material TypeAhead test'),
       ),
-      body: SingleChildScrollView(
-        child: Container(
-          margin: EdgeInsets.all(10),
-          child: ListView.separated(
-            shrinkWrap: true,
-            separatorBuilder: (context, index) => SizedBox(height: 100),
-            physics: const NeverScrollableScrollPhysics(),
-            itemBuilder: (context, index) => _getTypeAhead(),
-            itemCount: 6,
-          ),
-        ),
+      body: ListView.separated(
+        padding: const EdgeInsets.all(10),
+        separatorBuilder: (context, index) => const SizedBox(height: 100),
+        itemBuilder: (context, index) => _getTypeAhead(),
+        itemCount: 6,
       ),
     );
   }

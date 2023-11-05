@@ -15,6 +15,7 @@ class CupertinoSuggestionsList<T> extends StatefulWidget {
   final bool getImmediateSuggestions;
   final SuggestionSelectionCallback<T>? onSuggestionSelected;
   final SuggestionsCallback<T>? suggestionsCallback;
+  final SuggestionsLoadMoreCallback<T>? suggestionsLoadMoreCallback;
   final ItemBuilder<T>? itemBuilder;
   final IndexedWidgetBuilder? itemSeparatorBuilder;
   final LayoutArchitecture? layoutArchitecture;
@@ -35,12 +36,14 @@ class CupertinoSuggestionsList<T> extends StatefulWidget {
   final int? minCharsForSuggestions;
   final bool hideKeyboardOnDrag;
 
-  CupertinoSuggestionsList({
+  const CupertinoSuggestionsList({
+    super.key,
     required this.suggestionsBox,
     this.controller,
     this.getImmediateSuggestions = false,
     this.onSuggestionSelected,
     this.suggestionsCallback,
+    this.suggestionsLoadMoreCallback,
     this.itemBuilder,
     this.itemSeparatorBuilder,
     this.layoutArchitecture,
@@ -63,7 +66,7 @@ class CupertinoSuggestionsList<T> extends StatefulWidget {
   });
 
   @override
-  _CupertinoSuggestionsListState<T> createState() =>
+  State<CupertinoSuggestionsList<T>> createState() =>
       _CupertinoSuggestionsListState<T>();
 }
 
@@ -80,16 +83,22 @@ class _CupertinoSuggestionsListState<T>
   String? _lastTextValue;
   late final ScrollController _scrollController =
       widget.scrollController ?? ScrollController();
+  int _page = 1;
+  bool _isLoadMoreRunning = false;
+  bool _hasMoreData = true;
 
   @override
   void didUpdateWidget(CupertinoSuggestionsList<T> oldWidget) {
     super.didUpdateWidget(oldWidget);
+    widget.controller!.addListener(this._controllerListener);
+    _page = 1;
     _getSuggestions();
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    _page = 1;
     _getSuggestions();
   }
 
@@ -146,14 +155,31 @@ class _CupertinoSuggestionsListState<T>
     };
 
     widget.controller!.addListener(this._controllerListener);
+
+    if (widget.suggestionsLoadMoreCallback != null) {
+      _scrollController.addListener(_scrollListener);
+    }
+  }
+
+  _scrollListener() {
+    if (_scrollController.offset >=
+            _scrollController.position.maxScrollExtent &&
+        !_scrollController.position.outOfRange) {
+      if (_hasMoreData) {
+        _suggestionsValid = false;
+        _isLoadMoreRunning = true;
+        this._getSuggestions(loadType: 'append');
+      }
+    }
   }
 
   Future<void> invalidateSuggestions() async {
     _suggestionsValid = false;
+    _page = 1;
     _getSuggestions();
   }
 
-  Future<void> _getSuggestions() async {
+  Future<void> _getSuggestions({String? loadType}) async {
     if (_suggestionsValid) return;
     _suggestionsValid = true;
 
@@ -169,13 +195,17 @@ class _CupertinoSuggestionsListState<T>
       Object? error;
 
       try {
-        suggestions =
-            await widget.suggestionsCallback!(widget.controller!.text);
+        if (widget.suggestionsCallback != null)
+          suggestions =
+              await widget.suggestionsCallback!(widget.controller!.text);
+        else
+          suggestions = await widget.suggestionsLoadMoreCallback!(
+              widget.controller!.text, this._page);
       } catch (e) {
         error = e;
       }
 
-      if (this.mounted) {
+      if (mounted) {
         // if it wasn't removed in the meantime
         setState(() {
           double? animationStart = widget.animationStart;
@@ -187,7 +217,16 @@ class _CupertinoSuggestionsListState<T>
 
           this._error = error;
           this._isLoading = false;
-          this._suggestions = suggestions;
+          this._isLoadMoreRunning = false;
+          this._page += 1;
+          if (loadType == 'append') {
+            this._suggestions = [...this._suggestions!, ...suggestions!];
+            if (suggestions.isEmpty) {
+              _hasMoreData = false;
+            }
+          } else {
+            this._suggestions = suggestions;
+          }
         });
       }
     }
@@ -202,26 +241,27 @@ class _CupertinoSuggestionsListState<T>
   @override
   Widget build(BuildContext context) {
     bool isEmpty =
-        this._suggestions?.length == 0 && widget.controller!.text == "";
-    if ((this._suggestions == null || isEmpty) && this._isLoading == false)
-      return Container();
+        (this._suggestions?.isEmpty ?? false) && widget.controller!.text == "";
+    if ((this._suggestions == null || isEmpty) && this._isLoading == false) {
+      return const SizedBox();
+    }
 
     Widget child;
     if (this._isLoading!) {
       if (widget.hideOnLoading!) {
-        child = Container(height: 0);
+        child = const SizedBox(height: 0);
       } else {
         child = createLoadingWidget();
       }
     } else if (this._error != null) {
       if (widget.hideOnError!) {
-        child = Container(height: 0);
+        child = const SizedBox(height: 0);
       } else {
         child = createErrorWidget();
       }
     } else if (this._suggestions!.isEmpty) {
       if (widget.hideOnEmpty!) {
-        child = Container(height: 0);
+        child = const SizedBox(height: 0);
       } else {
         child = createNoItemsFoundWidget();
       }
@@ -234,8 +274,9 @@ class _CupertinoSuggestionsListState<T>
         : SizeTransition(
             axisAlignment: -1.0,
             sizeFactor: CurvedAnimation(
-                parent: this._animationController!,
-                curve: Curves.fastOutSlowIn),
+              parent: this._animationController!,
+              curve: Curves.fastOutSlowIn,
+            ),
             child: child,
           );
 
@@ -279,10 +320,10 @@ class _CupertinoSuggestionsListState<T>
                   width: 1.0,
                 ),
               ),
-              child: Align(
+              child: const Align(
                 alignment: Alignment.center,
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 8.0),
+                  padding: EdgeInsets.symmetric(vertical: 8.0),
                   child: CupertinoActivityIndicator(),
                 ),
               ),
@@ -308,7 +349,7 @@ class _CupertinoSuggestionsListState<T>
               child: Text(
                 'Error: ${this._error}',
                 textAlign: TextAlign.start,
-                style: TextStyle(
+                style: const TextStyle(
                   color: CupertinoColors.destructiveRed,
                   fontSize: 18.0,
                 ),
@@ -328,8 +369,8 @@ class _CupertinoSuggestionsListState<T>
                 width: 1.0,
               ),
             ),
-            child: Padding(
-              padding: const EdgeInsets.all(4.0),
+            child: const Padding(
+              padding: EdgeInsets.all(4.0),
               child: Text(
                 'No Items Found!',
                 textAlign: TextAlign.start,
@@ -344,7 +385,15 @@ class _CupertinoSuggestionsListState<T>
 
   Widget createSuggestionsWidget() {
     if (widget.layoutArchitecture == null) {
-      return defaultSuggestionsWidget();
+      return Column(mainAxisSize: MainAxisSize.min, children: [
+        Flexible(child: defaultSuggestionsWidget()),
+        if (this._isLoadMoreRunning)
+          const Center(
+              child: Padding(
+            padding: EdgeInsets.all(8),
+            child: CupertinoActivityIndicator(),
+          )),
+      ]);
     } else {
       return customSuggestionsWidget();
     }
@@ -353,23 +402,23 @@ class _CupertinoSuggestionsListState<T>
   Widget defaultSuggestionsWidget() {
     Widget child = Container(
       decoration: BoxDecoration(
-        color: widget.decoration!.color != null
-            ? widget.decoration!.color
-            : CupertinoColors.white,
-        border: widget.decoration!.border != null
-            ? widget.decoration!.border
-            : Border.all(
-                color: CupertinoColors.extraLightBackgroundGray,
-                width: 1.0,
-              ),
-        borderRadius: widget.decoration!.borderRadius != null
-            ? widget.decoration!.borderRadius
-            : null,
+        color: widget.decoration!.color ?? CupertinoColors.white,
+        border: widget.decoration!.border ??
+            Border.all(
+              color: CupertinoColors.extraLightBackgroundGray,
+              width: 1.0,
+            ),
+        borderRadius: widget.decoration!.borderRadius,
       ),
       child: ListView.separated(
         padding: EdgeInsets.zero,
         primary: false,
         shrinkWrap: true,
+        controller: _scrollController,
+        physics: widget.suggestionsLoadMoreCallback != null
+            ? const BouncingScrollPhysics(
+                parent: AlwaysScrollableScrollPhysics())
+            : null,
         keyboardDismissBehavior: widget.hideKeyboardOnDrag
             ? ScrollViewKeyboardDismissBehavior.onDrag
             : ScrollViewKeyboardDismissBehavior.manual,
@@ -377,17 +426,17 @@ class _CupertinoSuggestionsListState<T>
             ? false
             : widget.suggestionsBox!.autoFlipListDirection,
         itemCount: this._suggestions!.length,
-        itemBuilder: (BuildContext context, int index) {
-          return GestureDetector(
-            behavior: HitTestBehavior.translucent,
-            child: widget.itemBuilder!(
-                context, this._suggestions!.elementAt(index)),
-            onTap: () {
-              widget.onSuggestionSelected!(this._suggestions!.elementAt(index));
-            },
-          );
-        },
-        separatorBuilder: (BuildContext context, int index) =>
+        itemBuilder: (context, index) => GestureDetector(
+          behavior: HitTestBehavior.translucent,
+          child: widget.itemBuilder!(
+            context,
+            this._suggestions!.elementAt(index),
+          ),
+          onTap: () => widget.onSuggestionSelected!(
+            this._suggestions!.elementAt(index),
+          ),
+        ),
+        separatorBuilder: (context, index) =>
             widget.itemSeparatorBuilder?.call(context, index) ??
             const SizedBox.shrink(),
       ),
@@ -395,29 +444,29 @@ class _CupertinoSuggestionsListState<T>
 
     if (widget.decoration!.hasScrollbar) {
       child = MediaQuery.removePadding(
-          context: context,
-          removeTop: true,
-          child: CupertinoScrollbar(child: child));
+        context: context,
+        removeTop: true,
+        child: CupertinoScrollbar(
+          controller: _scrollController,
+          thumbVisibility: widget.decoration!.scrollbarThumbAlwaysVisible,
+          child: child,
+        ),
+      );
     }
 
     return child;
   }
 
   Widget customSuggestionsWidget() {
-    Widget child = Container(
+    Widget child = DecoratedBox(
       decoration: BoxDecoration(
-        color: widget.decoration!.color != null
-            ? widget.decoration!.color
-            : CupertinoColors.white,
-        border: widget.decoration!.border != null
-            ? widget.decoration!.border
-            : Border.all(
-                color: CupertinoColors.extraLightBackgroundGray,
-                width: 1.0,
-              ),
-        borderRadius: widget.decoration!.borderRadius != null
-            ? widget.decoration!.borderRadius
-            : null,
+        color: widget.decoration!.color ?? CupertinoColors.white,
+        border: widget.decoration!.border ??
+            Border.all(
+              color: CupertinoColors.extraLightBackgroundGray,
+              width: 1.0,
+            ),
+        borderRadius: widget.decoration!.borderRadius,
       ),
       child: widget.layoutArchitecture!(
         List.generate(this._suggestions!.length, (index) {
@@ -437,9 +486,14 @@ class _CupertinoSuggestionsListState<T>
 
     if (widget.decoration!.hasScrollbar) {
       child = MediaQuery.removePadding(
-          context: context,
-          removeTop: true,
-          child: CupertinoScrollbar(child: child));
+        context: context,
+        removeTop: true,
+        child: CupertinoScrollbar(
+          controller: _scrollController,
+          thumbVisibility: widget.decoration!.scrollbarThumbAlwaysVisible,
+          child: child,
+        ),
+      );
     }
 
     return child;

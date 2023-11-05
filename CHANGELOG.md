@@ -1,3 +1,19 @@
+## 4.9.0 - 22-Oct-2023
+
+PR # 519 - Added: pull to load more
+
+## 4.8.0 - 24-Sept-2023
+
+PR # 523 - Cleanup
+
+## 4.7.0 - 5-Sept-2023
+
+PR # 512 - 3 Major fixes (see PR) 
+
+## 4.6.2 - 19-June-2023
+
+PR # 500 - itemSeparatorBuilder added to material typeaheadformfield
+
 ## 4.6.1 - 04-June-2023
 
 PR # 494 - Fix for scrollbar clickthrough
